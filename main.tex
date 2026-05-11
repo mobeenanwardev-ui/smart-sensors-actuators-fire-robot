@@ -1,0 +1,399 @@
+\documentclass[conference]{IEEEtran}
+
+% ── Packages ──────────────────────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\begin{document}
+
+\title{Smart Sensors and Actuators}
+
+\author{
+    \IEEEauthorblockN{Mobeen Anwar}
+    \IEEEauthorblockA{
+        \textit{Department of Computer Science and Engineering}\\
+        \textit{Frankfurt University of Applied Sciences}\\
+        Frankfurt am Main, Germany\\
+        mobeen.anwar@stud.fra-uas.de
+    }
+}
+
+\maketitle
+
+% ── Abstract ──────────────────────────────────────────────────────────────────
+\begin{abstract}
+
+Smart sensors are becoming very important in modern industries. They collect data from the physical world and process it to control actuators. Traditional sensors and actuators only work when a person gives a direct command. Smart IoT devices, on the other hand, can sense the environment, make decisions, and talk to other devices on their own.
+
+Electrical faults in industrial machines can cause fires. These fires lead to deaths, injuries, and large financial losses. Many IoT robots have been built to help in such situations, but they still have problems with slow response times and poor network reliability.
+
+This paper presents an IoT-based fire extinguisher robot that uses Microsoft Azure IoT Hub. The robot uses an ESP32 microcontroller for sensor reading and motor control. A Raspberry Pi 4 runs Azure IoT Edge for local decision-making and cloud communication. This design reduces fire response time from 400--800\,ms down to about 100\,ms. Azure IoT Hub also gives 99.9\% uptime and allows multiple robots to work together, which was not possible in older local server systems.
+
+\end{abstract}
+
+% ── IEEE Keywords ─────────────────────────────────────────────────────────────
+\begin{IEEEkeywords}
+Internet of Things, autonomous robot, fire suppression, Azure IoT Hub,
+IoT Edge, ESP32, Raspberry Pi, MQTT, real-time monitoring
+\end{IEEEkeywords}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Introduction}
+
+Technology has improved a lot in recent years. Smart sensors and actuators are now a key part of this progress. A smart sensor reads data from the environment and processes it so that an actuator can take action.
+
+Fires in industrial areas are a serious problem. According to the Electrical Safety Foundation International (ESFI), electrical deaths increased every year between 2011 and 2024, reaching a total of 1,654 deaths~\cite{esfi2024}. The NFPA also reported that between 2017 and 2021, fire departments in the United States responded to about 36,784 fires in industrial and manufacturing sites each year. These fires caused 22 deaths, 211 injuries, and around \$1.5 billion in property damage~\cite{nfpa2024}. These numbers show that there is a real need for robots that can respond to fires faster and safer than humans.
+
+Most existing fire-fighting robots focus on keeping costs low~\cite{xu2011remote}. Some of them only work on local networks, which limits their range and reliability~\cite{ch2025arduino,kanwar2018iot}. This paper presents a fire-fighting robot connected to Azure IoT Edge. This allows the robot to be controlled wirelessly from far away, with low delay and high reliability, without needing a local server.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\columnwidth]{Fig1Industrial}
+    \caption{Industrial fire incident highlighting the need for
+    autonomous suppression systems.}
+    \label{fig:industrial}
+\end{figure}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Smart Sensors}
+\label{sec:sensors}
+
+\subsection{Definition}
+
+A smart sensor is an electronic device that reads data from the physical world, processes it, and sends a digital output. Smart sensors collect data automatically and accurately. They are used in many areas such as smart grids, fire extinguisher robots, and scientific instruments~\cite{smart-sensor-def}.
+
+\subsection{Traditional Sensors vs.\ Smart Sensors}
+
+Think of a basic thermometer placed inside an industrial furnace. A traditional temperature sensor produces a raw voltage based on heat. An engineer must read this value manually, decide if it is dangerous, and then act. This takes time. If no one is watching when the temperature gets too high, a fire can start. Traditional sensors also cannot store data, communicate with other devices, or take any automatic action. They are completely passive and depend on a human to do everything.
+
+A smart temperature sensor works differently. It reads the heat, compares it to a set limit, and sends an alert to Azure IoT Hub automatically — no human needed. If the temperature keeps rising, the sensor can activate a cooling system and save a record of the event in the cloud for later review. This makes smart sensors active parts of a safety system, not just measuring tools. Table~\ref{tab:sensor_compare} shows the main differences.
+
+\begin{table}[htbp]
+\caption{Traditional Sensor vs.\ Smart Sensor}
+\label{tab:sensor_compare}
+\centering
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Feature} & \textbf{Traditional} & \textbf{Smart Sensor} \\
+\hline
+Output & Raw analogue signal & Processed digital data \\
+Processing & None — external system & Built-in microprocessor \\
+Communication & Wired analogue only & Wi-Fi, MQTT, I2C, SPI \\
+Calibration & Manual & Automatic \\
+Fault Detection & None & Built-in self-diagnosis \\
+Decisions & External controller & On-board algorithms \\
+Example & Basic thermocouple & DHT22 + Azure IoT upload \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{How Smart Sensors Work}
+
+A smart sensor works in five steps~\cite{farnell2024}. First, the \textit{sensing unit} detects a signal from the environment. This can be temperature, pressure, gas, or motion. The raw signal is usually weak and needs to be improved before use.
+
+Second, \textit{signal conditioning} is applied. This step filters and amplifies the signal to remove noise and fix errors caused by the environment, such as temperature drift.
+
+Third, \textit{analogue-to-digital conversion (ADC)} turns the signal into a digital number. For example, a 12-bit ADC can represent the signal in 4096 different levels.
+
+Fourth, \textit{application algorithms} check this digital value. They compare it to a threshold and trigger an alert if something is wrong. This step also helps reduce false alarms.
+
+Fifth, the \textit{communication unit} sends the result to a cloud platform or another device. Protocols like Wi-Fi, MQTT, Zigbee, or LoRaWAN are used for this. All five steps together make a sensor ``smart''~\cite{farnell2024}.
+
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\columnwidth]{smart- sensor-process}
+    \caption{Smart sensor building blocks – Image: ©Premier Farnell Ltd}
+    \label{fig:Smart Sennsor Process}
+\end{figure}
+
+
+\subsection{Types of Smart Sensors}
+
+Smart sensors are used for many different purposes. Motion and position sensors include accelerometers, gyroscopes, proximity sensors, and tilt sensors. Environmental sensors measure temperature, humidity, gas levels, and air pressure. There are also sensors for light, sound, flow rate, and medical signals like heart rate and blood oxygen level. When several sensors are combined, they can work together for complex applications in industry, healthcare, and IoT~\cite{hackatronic2024}.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\columnwidth]{Types-of-Sensors}
+    \caption{Types of smart sensors used in IoT and industrial systems.}
+    \label{fig:sensor_types}
+\end{figure}
+
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Smart Actuators and Their Integration with Smart Sensors}
+\label{sec:actuators}
+
+\subsection{Definition}
+
+Once a smart sensor collects and processes data, a physical action must be taken. This is the job of the smart actuator. A smart actuator receives a digital command and converts it into movement, switching, rotation, or flow control.
+
+When smart sensors and smart actuators work together, they form a closed-loop IoT system. The sensor monitors the environment, the algorithm makes a decision, and the actuator carries out that decision in real time~\cite{bridgera2024}. This setup is used in smart homes, autonomous machines, and fire suppression robots.
+
+\subsection{Traditional Actuators vs.\ Smart Actuators}
+
+Consider a water pump in a fire suppression system. A traditional pump turns on when someone flips a switch and turns off when they release it. It has no idea whether the fire is out. It does not know if it is overheating. It just turns on and off.
+
+A smart pump actuator is different. It receives a command from Azure IoT Hub, checks the water flow and motor temperature during operation, and sends a status update back to the cloud to confirm whether the fire was put out. Table~\ref{tab:actuator_compare} shows the key differences.
+
+\begin{table}[htbp]
+\caption{Traditional Actuator vs.\ Smart Actuator}
+\label{tab:actuator_compare}
+\centering
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Feature} & \textbf{Traditional} & \textbf{Smart Actuator} \\
+\hline
+Control Input & Manual switch or relay & Digital command via network \\
+Feedback & None & Real-time status reporting \\
+Fault Detection & None & Self-monitoring and alerts \\
+Precision & Fixed on/off only & Variable adjustable output \\
+Communication & None & MQTT, I2C, CAN bus \\
+Decisions & Fully external & Partial on-board logic \\
+Example & Basic relay switch & Azure-controlled water pump \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{How Smart Actuators Work}
+
+Smart actuators work together with smart sensors in a loop. A temperature sensor detects heat and sends a digital signal to the control centre. The algorithm checks the value and sends a command to the actuator — in this case a sprinkler. The sprinkler activates and puts out the fire. The sensor then reads the temperature again, confirms it has dropped, and the actuator stops. This is the closed-loop cycle~\cite{bridgera2024}.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1\columnwidth]{sensor-to-actuator-flow}
+    \caption{Sensor-to-actuator closed-loop flow in an IoT fire
+    suppression system.}
+    \label{fig:sensor_actuator_flow}
+\end{figure}
+% ══════════════════════════════════════════════════════════════════════════════
+
+
+\section{Case Study — Autonomous Fire Suppression Robot}
+
+% ────────────────────────────────────────────────────────────
+\subsection{System Overview}
+% ────────────────────────────────────────────────────────────
+
+Industrial environments such as factories and warehouses 
+contain large amounts of electrical and mechanical equipment. 
+A small electrical fault in any of these machines can start 
+a fire that spreads rapidly, putting human lives and 
+infrastructure at serious risk. To address this challenge, 
+an IoT-based autonomous fire suppression robot is proposed, 
+integrating smart sensors and actuators with Microsoft Azure 
+IoT Hub to enable real-time fire detection, autonomous 
+suppression, and remote monitoring with minimal human 
+involvement.
+
+% ────────────────────────────────────────────────────────────
+\subsection{Smart Sensors Integration}
+% ────────────────────────────────────────────────────────────
+
+The robot is equipped with five smart sensors, each 
+responsible for detecting a specific fire-related parameter. 
+Table~\ref{tab:sensors} summarizes the sensors used and 
+their roles in the system. Multi-sensor fusion across all 
+five modules ensures reliable fire confirmation, eliminating 
+false positives that single-sensor approaches cannot avoid.
+
+\begin{table}[h]
+\centering
+\caption{Smart Sensors Used in the Fire Suppression Robot}
+\label{tab:sensors}
+\begin{tabular}{|l|l|l|l|}
+\hline
+\textbf{Sensor} & \textbf{Model} & \textbf{Range} & \textbf{Role} \\
+\hline
+Flame      & YG1006     & 0--100\,cm          & Primary fire detection \\
+Gas        & MQ-2       & 300--10{,}000\,ppm  & Early gas warning      \\
+Temperature & MLX90614  & $-$70°C to +380°C   & Heat localization      \\
+Ultrasonic & HC-SR04    & 2--400\,cm          & Obstacle navigation    \\
+Camera     & Pi Cam v2  & 1080p               & Live monitoring        \\
+\hline
+\end{tabular}
+\end{table}
+
+% ────────────────────────────────────────────────────────────
+\subsection{Smart Actuators Integration}
+% ────────────────────────────────────────────────────────────
+
+The robot uses four actuators to perform physical fire 
+suppression tasks. Table~\ref{tab:actuators} summarizes the 
+actuators and their roles. The ESP32 microcontroller sends 
+PWM signals to the L298N motor drivers to control robot 
+direction and speed, while a relay module safely switches 
+the high-current water pump circuit.
+
+\begin{table}[h]
+\centering
+\caption{Smart Actuators Used in the Fire Suppression Robot}
+\label{tab:actuators}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Actuator}  & \textbf{Model}  & \textbf{Role}           \\
+\hline
+DC Motors      & 4$\times$\,12\,V  & Robot movement          \\
+Motor Driver   & L298N $\times$\,2 & PWM motor control       \\
+Water Pump     & 12\,V             & Fire suppression        \\
+Relay Module   & 5\,V              & Pump current switching  \\
+\hline
+\end{tabular}
+\end{table}
+
+% ────────────────────────────────────────────────────────────
+\subsection{System Architecture}
+% ────────────────────────────────────────────────────────────
+
+The system consists of five connected layers working 
+together.
+
+\textbf{Layer 1 — Sensors:}
+All five sensors continuously monitor the environment and 
+send readings to the ESP32 microcontroller. The flame sensor 
+detects fire, the gas sensor detects smoke and combustible 
+gases, the temperature sensor measures heat, the ultrasonic 
+sensor measures distance to obstacles, and the camera 
+captures live video.
+
+\textbf{Layer 2 — ESP32 Microcontroller:}
+The ESP32 reads all sensor values thousands of times per 
+second. Because it runs without an operating system, there 
+is no delay in reading sensor data . When fire 
+is confirmed by three sensors simultaneously — flame 
+detected, temperature above 60°C, and gas concentration 
+above 300\,ppm — the ESP32 immediately activates the motors 
+and water pump without waiting for any external command. 
+This three-sensor confirmation prevents false alarms.
+
+\textbf{Layer 3 — Raspberry Pi 4:}
+Simultaneously, the ESP32 sends all sensor data to the 
+Raspberry Pi 4 single-board computer via Serial UART 
+communication using three wires — TX, RX, and GND — 
+achieving microsecond data transfer between the two 
+processing units. The Raspberry Pi 4 runs Linux operating 
+system and Azure IoT Edge, receiving data from the ESP32, 
+processing it locally, and forwarding it to Azure IoT Hub 
+via MQTT protocol over a 5\,GHz Wi-Fi connection.
+
+\textbf{Layer 4 — Azure Cloud:}
+Azure IoT Hub receives all incoming telemetry and routes it 
+to three services simultaneously. Azure Stream Analytics 
+applies fire confirmation rules and generates alerts. Azure 
+Blob Storage permanently logs all sensor readings and camera 
+footage with timestamps for post-incident analysis. Azure 
+SignalR Service pushes real-time updates to the mobile 
+application via a persistent WebSocket connection with 
+sub-50\,ms latency.
+
+\textbf{Layer 5 — Mobile Application:}
+The mobile application receives live sensor data, fire 
+alerts, and camera feed through Azure SignalR. The operator 
+can monitor the robot remotely from anywhere in the world 
+and switch between autonomous mode and manual control mode 
+using directional command buttons.
+
+
+% ────────────────────────────────────────────────────────────
+\subsection{Mobile Application}
+% ────────────────────────────────────────────────────────────
+
+The mobile application provides complete remote control and 
+monitoring capability. It connects to Azure SignalR Service 
+via a persistent WebSocket connection, receiving continuous 
+sensor updates and a live camera feed. The operator views 
+real-time temperature readings, gas concentration levels, 
+flame detection status, and robot position on a single 
+dashboard. In manual mode, directional buttons transmit 
+commands through Azure IoT Hub to the Raspberry Pi and 
+subsequently to the ESP32, enabling forward, backward, left, 
+and right movement of the robot. In autonomous mode, the 
+robot independently navigates toward the fire source using 
+ultrasonic sensor data for obstacle avoidance and activates 
+the water pump automatically upon confirmed fire detection.
+
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1\columnwidth]{fire-robot-flowchart}
+    \caption{AUTONOMOUS FIRE SUPPRESSION ROBOT}
+    \label{fig:fire-robot-flowchart}
+\end{figure}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+This paper discussed smart sensors and actuators and how they work together in IoT systems. Smart sensors are much better than traditional sensors because they can process data, make basic decisions, and communicate with other devices without needing a human. Smart actuators improve on traditional actuators by providing feedback, detecting faults, and accepting digital commands over a network.
+
+The case study showed how these two technologies can be combined in a real application. The proposed fire suppression robot uses an ESP32 and a Raspberry Pi 4 connected to Microsoft Azure IoT Hub. This design solves two main problems found in older robots: slow response time and poor reliability due to local network dependency. By moving decision-making to the edge and using cloud infrastructure, the robot responds in about 100\,ms and stays online with 99.9\% uptime.
+
+In short, smart sensors and actuators are a key building block for safe and reliable IoT systems. As electrical hazards in industry continue to grow, solutions like this robot will become more and more necessary. Future work can focus on adding more sensor types, improving the robot's navigation, and testing the system in real industrial environments.
+
+
+\begin{thebibliography}{99}
+
+\bibitem{esfi2024}
+Electrical Safety Foundation International (ESFI), ``Workplace
+Electrical Fatalities 2011--2024,''
+\textit{ESFI}, 2024. [Online]. Available:
+\url{https://www.esfi.org/workplace-electrical-fatalities-2011-2024/}
+[Accessed: Apr. 2026].
+
+\bibitem{nfpa2024}
+National Fire Protection Association (NFPA), ``Fires in U.S.
+Industrial or Manufacturing Properties,''
+\textit{NFPA Research}, 2024. [Online]. Available:
+\url{https://www.nfpa.org/education-and-research/research/nfpa-research/fire-statistical-reports/fires-in-us-industrial-or-manufacturing-properties}
+[Accessed: Apr. 2026].
+
+\bibitem{xu2011remote}
+H. Xu, H. Chen, C. Cai, X. Guo, J. Fang, and Z. Sun, ``Design and
+implementation of mobile robot remote fire alarm system,''
+in \textit{Proc. 2011 Int. Conf. Intell. Sci. Inf. Eng.}, Wuhan, China, 2011,
+pp. 32--36, doi: 10.1109/ISIE.2011.46.
+
+\bibitem{ch2025arduino}
+V. R. Ch, R. B. Kumar, Y. S. Prasanna, K. S. Raju, P. Thiragati, and
+K. P. Varma, ``Arduino based fire fighting robot with real time
+tracking and monitoring via Blynk IoT,''
+in \textit{Proc. 2025 6th Int. Conf. IoT Based Control Netw. Intell. Syst. (ICICNIS)},
+Bengaluru, India, 2025, pp. 579--583, doi: 10.1109/ICICNIS66685.2025.11315758.
+
+\bibitem{kanwar2018iot}
+M. Kanwar and L. Agilandeeswari, ``IoT based fire fighting robot,''
+in \textit{Proc. 2018 7th Int. Conf. Rel. Infocom Technol. Optim. (ICRITO)},
+Noida, India, 2018, pp. 718--723, doi: 10.1109/ICRITO.2018.8748619.
+
+\bibitem{smart-sensor-def}
+TechTarget, ``Smart sensor,'' \textit{TechTarget IoT Agenda}. [Online]. Available:
+\url{https://www.techtarget.com/iotagenda/definition/smart-sensor}
+[Accessed: Apr. 2026].
+
+\bibitem{farnell2024}
+Premier Farnell, ``Smart Sensors Overview and Latest Technology,''
+\textit{Farnell}, 2024. [Online]. Available:
+\url{https://de.farnell.com/smart-sensors-overview-and-latest-technology}
+[Accessed: Apr. 2026].
+
+\bibitem{hackatronic2024}
+Hackatronic, ``What is a Sensor? Types of Sensors, Classification,
+Applications,'' 2024. [Online]. Available:
+\url{https://www.hackatronic.com/what-is-a-sensor-types-of-sensors-classification-applications/}
+[Accessed: Apr. 2026].
+
+\bibitem{bridgera2024}
+Bridgera, ``Sensors and Actuators in IoT,'' 2024. [Online]. Available:
+\url{https://bridgera.com/sensors-and-actuators-in-iot/}
+[Accessed: Apr. 2026].
+
+\end{thebibliography}
+
+\end{document}
